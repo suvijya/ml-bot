@@ -150,11 +150,11 @@ def recognize_face(face_db, initial_tolerance=0.5, max_tolerance=0.6):
 
     start_time = time.time()
     max_runtime = 15  # Max runtime in seconds
-    recognized = False
+    recognized = False  # Flag to end recognition after success
 
-    # Check if the face database is empty
+    # Check if the face database is empty, if so, add a new face
     if not face_db['encodings']:
-        print("Face database is empty. Adding a new face.")
+        print("Face database is empty. Starting with a new face entry.")
         while True:
             ret, frame = video_capture.read()
             if not ret:
@@ -162,36 +162,36 @@ def recognize_face(face_db, initial_tolerance=0.5, max_tolerance=0.6):
                 video_capture.release()
                 return
 
-            # Resize and process the frame
+            # Resize frame and detect face locations
             rgb_small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
             rgb_small_frame = cv2.cvtColor(rgb_small_frame, cv2.COLOR_BGR2RGB)
             face_locations = face_recognition.face_locations(rgb_small_frame)
             face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
 
             if face_encodings:
-                # Loop until correct name and branch are provided
-                while True:
-                    speak("New face detected! Please say your name.")
-                    name = get_name_from_speech()
-                    if name:
-                        speak("Please say your branch of study.")
-                        branch = get_branch_from_speech()
-                        if branch:
-                            # Confirm the entered details
-                            speak(f"You said your name is {name} and your branch is {branch}. Is that correct?")
-                            if vosk_yes_no_confirmation():
-                                # Add the new face to the database
-                                add_new_face_to_database(name, branch, face_encodings[0], face_db)
-                                recognized = True
-                                print(f"Added {name} with branch {branch} to the database.")
-                                break  # Exit the name-branch input loop
-                            else:
-                                speak("Let's try again.")
+                speak("New face detected! Please say your name.")
+                name = get_name_from_speech()
+                if name:
+                    speak("Please say your branch of study.")
+                    branch = get_branch_from_speech()
+                    if branch:
+                        speak(f"You said your name is {name} and your branch is {branch}. Is that correct?")
+                        if vosk_yes_no_confirmation():
+                            add_new_face_to_database(name, branch, face_encodings[0], face_db)
+                            recognized = True  # Mark as recognized to break out of loops
+                            print(f"Added {name} with branch {branch} to the database.")
+                            break  # Exit new face entry loop after adding
+                        else:
+                            speak("Let's try again.")
             else:
                 print("No face detected. Retrying...")
-            continue
 
-    # Continue with recognition if the face database is not empty
+            # Check for max runtime during new face addition
+            if time.time() - start_time > max_runtime:
+                print("Max runtime reached while adding new face. Exiting...")
+                break
+
+    # If database is not empty, attempt recognition
     while not recognized and face_db['encodings']:
         ret, frame = video_capture.read()
         if not ret:
@@ -199,7 +199,7 @@ def recognize_face(face_db, initial_tolerance=0.5, max_tolerance=0.6):
             time.sleep(1)
             continue
 
-        # Resize frame for faster processing and convert to RGB
+        # Resize frame and convert to RGB
         rgb_small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
         rgb_small_frame = cv2.cvtColor(rgb_small_frame, cv2.COLOR_BGR2RGB)
 
@@ -211,9 +211,10 @@ def recognize_face(face_db, initial_tolerance=0.5, max_tolerance=0.6):
             face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
 
             for face_encoding in face_encodings:
-                # Calculate average encodings for each person in the database
+                # Average encodings for each person in the database
                 avg_encodings = [np.mean(encs, axis=0) if isinstance(encs, list) else encs for encs in face_db['encodings']]
 
+                # Try recognition with initial tolerance, increasing if not recognized
                 tolerance = initial_tolerance
                 while tolerance <= max_tolerance:
                     distances = face_recognition.face_distance(avg_encodings, face_encoding)
@@ -225,32 +226,32 @@ def recognize_face(face_db, initial_tolerance=0.5, max_tolerance=0.6):
                         print(f"Minimum distance: {min_distance}")
 
                         if min_distance < tolerance:
-                            # Recognize known face
+                            # Recognize the known face
                             name = face_db['names'][min_distance_index]
                             branch = face_db['branches'][min_distance_index]
                             print(f"Recognized {name}, branch: {branch}")
                             speak(f"Hello, {name}! You study {branch}.")
-                            recognized = True
-                            break  # Exit the loop if recognized
+                            recognized = True  # Mark recognized to exit loop
+                            break  # Break out of tolerance loop
+                        tolerance += 0.05
 
-                        tolerance += 0.05  # Increment tolerance if not recognized
+                    if recognized:
+                        break  # Break out of face_encoding loop if recognized
 
-                if recognized:
-                    break
+                # If face not recognized, prompt for new face entry
+                if not recognized:
+                    speak("New face detected! Please say your name.")
+                    name = get_name_from_speech()
+                    if name:
+                        speak("Please say your branch of study.")
+                        branch = get_branch_from_speech()
+                        if branch:
+                            add_new_face_to_database(name, branch, face_encoding, face_db)
+                            recognized = True  # Mark recognized after new entry
+                            print(f"Added {name} with branch {branch} to the database.")
+                            break  # Exit recognition loop
 
-            if not recognized:
-                speak("New face detected! Please say your name.")
-                name = get_name_from_speech()
-                if name:
-                    speak("Please say your branch of study.")
-                    branch = get_branch_from_speech()
-                    if branch:
-                        add_new_face_to_database(name, branch, face_encoding, face_db)
-                        recognized = True  # Set flag if new face added
-                        print(f"Added {name} with branch {branch} to the database.")
-                        break  # Exit the loop after adding the new face
-
-        # Break from loop if recognized or timeout
+        # Exit loop after recognition or reaching max runtime
         if recognized or (time.time() - start_time > max_runtime):
             print("Ending recognition loop.")
             break
