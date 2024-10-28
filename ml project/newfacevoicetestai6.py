@@ -164,7 +164,7 @@ def get_city_from_speech():
 
 def get_weather():
     """Fetch the current weather information for a specific city and speak it."""
-    api_key = "53b87d8341ebc5c55fdddb82cf37439a"  # Replace with your actual API key
+    api_key = "key"  # Replace with your actual API key
 
     # Prompt user for the city name
     city = get_city_from_speech()
