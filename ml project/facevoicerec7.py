@@ -25,9 +25,9 @@ def speak(text):
 
 # Load Vosk model for yes/no responses
 # Define paths for each model
-vosk_model_general_path = "vosk-model-small-en-us-0.15"  # General English model
-vosk_model_indian_path = "vosk-model-small-en-in-0.4"    # Indian English model
-vosk_model_hindi_path = "vosk-model-small-hi-0.22"    # Hindi model
+vosk_model_general_path = "C:/Users/Siddharth/OneDrive/Documents/program/suvi_proj/vosk-model-small-en-us-0.15"  # General English model
+vosk_model_indian_path ="C:/Users/Siddharth/OneDrive/Documents/program/suvi_proj/vosk-model-small-en-in-0.4"    # Indian English model
+vosk_model_hindi_path = "C:/Users/Siddharth/OneDrive/Documents/program/suvi_proj/vosk-model-small-hi-0.22"    # Hindi model
 
 # Load each model
 vosk_model_general = Model(vosk_model_general_path)
@@ -161,7 +161,6 @@ def get_command_from_speech():
             speak("There was an issue with the network connection.")
             return None
 
-import datetime
 
 def get_time():
     """Fetch the current time and speak it."""
@@ -175,8 +174,6 @@ def get_date():
     current_date = now.strftime("%B %d, %Y")  # Format date as Month Day, Year
     speak(f"Today's date is {current_date}.")
 
-
-import requests
 
 def get_city_from_speech():
     """Prompt the user to say the city name and return it."""
@@ -386,6 +383,35 @@ def recognize_face(face_db, initial_tolerance=0.5, max_tolerance=0.6):
             print("Ending recognition loop.")
             break
 
+
+    def dead(name, face_db):
+        """Delete a face entry from the database by name."""
+        if name in face_db['names']:
+            index = face_db['names'].index(name)
+            
+            # Remove data from the database
+            del face_db['names'][index]
+            del face_db['branches'][index]
+            del face_db['encodings'][index]
+            
+            # Save the updated database
+            save_face_database(face_db)
+            print(f"Deleted {name} from the database.")
+            speak(f"{name}'s data has been deleted from the database.")
+        else:
+            print(f"Name '{name}' not found in the database.")
+            speak(f"No data found for {name} in the database.")
+
+
+    def delentry():
+        """Handle the deletion of a face entry."""
+        speak("Whose data would you like to delete?")
+        name_to_delete = get_name_from_speech()
+        if name_to_delete:
+            dead(name_to_delete, face_db)
+        else:
+            speak("I couldn't get the name. Please try again.")
+
     # Continue to ask for commands until the user says "stop" or "exit"
     if recognized:
         while True:
@@ -404,6 +430,8 @@ def recognize_face(face_db, initial_tolerance=0.5, max_tolerance=0.6):
             elif "stop" in command or "exit" in command:
                 speak("Goodbye!")
                 break
+            elif "delete" in command:
+                delentry()
             else:
                 speak("Sorry, I didn't understand that. Please ask again.")
 
